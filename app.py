@@ -30,8 +30,7 @@ def predecir():
     try:
         # 1. Recibir la orden del cliente (JSON)
         datos = request.get_json()
-        # Esperamos algo como: {"tierra": "Arcillosa", "temp": 25, "hum": 60, "lluvia": 100}
-        
+        # Se espera algo como: "tierra": "Arcillosa", "temp": 25, "hum": 60, "lluvia": 100
         tierra = datos['tierra']
         temp = float(datos['temp'])
         hum = float(datos['hum'])
