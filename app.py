@@ -3,19 +3,19 @@ from flask_cors import CORS
 import joblib
 import numpy as np
 
-#  CONFIGURACIÓN DEL MESERO (API) 
+# --- CONFIGURACIÓN INICIAL DE LA API ---
 app = Flask(__name__)
-CORS(app) # Permite que cualquiera (tu App) haga pedidos
+CORS(app) # Habilitar CORS para permitir peticiones externas (desde Ionic)
 
-# CARGAR AL CHEF (TUS ARCHIVOS)
-print("Cargando el cerebrazo")
+# --- CARGA DE MODELOS Y ARTEFACTOS SERIALIZADOS ---
+print("Cargando modelo y herramientas de preprocesamiento...")
 modelo = joblib.load('modelo_cultivos_rf.pkl')
 scaler = joblib.load('scaler.pkl')
 label_encoder = joblib.load('label_encoder.pkl')
-print("Cerebelo listo")
+print("Modelos cargados correctamente.")
 
-#DICCIONARIO DE TRADUCCIÓN (TIPO DE TIERRA A NPK) 
-# Esto convierte lo que el usuario ve en lo que el modelo necesita
+# --- BASE DE CONOCIMIENTO (PROPIEDADES DEL SUELO) ---
+# Diccionario para mapear el input categórico del usuario a valores numéricos aproximados
 suelo_mapping = {
     "Arcillosa": {"N": 60.0, "P": 45.0, "K": 35.0, "ph": 7.5},
     "Arenosa":   {"N": 20.0, "P": 15.0, "K": 25.0, "ph": 6.0},
@@ -24,19 +24,20 @@ suelo_mapping = {
     "Roja":      {"N": 40.0, "P": 55.0, "K": 40.0, "ph": 5.5}
 }
 
-# ENDPOINTS DE LA API
+# --- DEFINICIÓN DE ENDPOINTS ---
 @app.route('/predecir', methods=['POST'])
 def predecir():
     try:
-        # 1. Recibir la orden del cliente (JSON)
+        # 1. Obtener los datos de la petición (JSON)
         datos = request.get_json()
-        # Se espera algo como: "tierra": "Arcillosa", "temp": 25, "hum": 60, "lluvia": 100
-        tierra = datos['tierra']
-        temp = float(datos['temp'])
-        hum = float(datos['hum'])
-        lluvia = float(datos['lluvia'])
+        
+        # Extracción de variables enviadas por el cliente
+        tierra = datos.get('tierra')
+        temp = float(datos.get('temp'))
+        hum = float(datos.get('hum'))
+        lluvia = float(datos.get('lluvia'))
 
-        # 2. Traducir la "Tierra" a N, P, K, pH
+        # 2. Asignar valores químicos (N, P, K, pH) según el tipo de tierra
         if tierra in suelo_mapping:
             nutrientes = suelo_mapping[tierra]
             N = nutrientes['N']
@@ -46,30 +47,47 @@ def predecir():
         else:
             return jsonify({'error': 'Tipo de tierra no reconocido'}), 400
 
-        # 3. Preparar los datos para el modelo
-        # IMPORTANTE: El orden debe ser IGUAL al del entrenamiento
-        # [N, P, K, temperature, humidity, ph, rainfall]
+        # 3. Construir el vector de características (Feature Vector)
+        # Nota: El orden debe coincidir estrictamente con el usado en el entrenamiento
+        # Orden: [N, P, K, temperature, humidity, ph, rainfall]
         features = np.array([[N, P, K, temp, hum, ph, lluvia]])
 
-        # 4. Ajustar la escala (Scaler)
+        # 4. Estandarización de datos (Scaling)
+        # Aplicar la misma transformación usada en el entrenamiento
         features_scaled = scaler.transform(features)
 
-        # 5. El Chef cocina (Predicción)
-        prediccion_num = modelo.predict(features_scaled)
+        # 5. Cálculo de probabilidades (Inferencia)
+        # predict_proba retorna un array con la probabilidad para cada una de las 22 clases
+        probabilidades = modelo.predict_proba(features_scaled)[0]
         
-        # 6. Traducir el resultado (Número -> Nombre del cultivo)
-        resultado_texto = label_encoder.inverse_transform(prediccion_num)[0]
+        # 6. Mapeo de probabilidades a etiquetas de clase
+        nombres_cultivos = label_encoder.classes_
 
-        # 7. Entregar el platillo al cliente
+        # Crear una lista de diccionarios con el par {cultivo, viabilidad}
+        resultados = []
+        for nombre, prob in zip(nombres_cultivos, probabilidades):
+            resultados.append({
+                "cultivo": nombre,
+                "viabilidad": round(prob * 100, 2) # Convertir a porcentaje con 2 decimales
+            })
+
+        # 7. Ordenamiento de resultados
+        # Ordenar de mayor a menor probabilidad
+        resultados_ordenados = sorted(resultados, key=lambda x: x['viabilidad'], reverse=True)
+
+        # 8. Selección del Top 3
+        top_3 = resultados_ordenados[:3]
+
+        # 9. Retornar respuesta al cliente
         return jsonify({
-            'cultivo_ideal': resultado_texto,
-            'mensaje': f'Para tierra {tierra} y clima actual, te recomiendo: {resultado_texto}'
+            'top_3_recomendaciones': top_3,
+            'mensaje': 'Análisis predictivo completado exitosamente.'
         })
 
     except Exception as e:
+        # Manejo de errores internos del servidor
         return jsonify({'error': str(e)}), 500
 
-# --- ENCENDER EL RESTAURANTE ---
+# --- EJECUCIÓN DEL SERVIDOR ---
 if __name__ == '__main__':
-    # host='0.0.0.0' significa que es visible en tu red wifi local
     app.run(host='0.0.0.0', port=5000, debug=True)
