@@ -18,10 +18,14 @@ print("Modelos cargados correctamente.")
 # Diccionario para mapear el input categórico del usuario a valores numéricos aproximados
 suelo_mapping = {
     "Arcillosa": {"N": 60.0, "P": 45.0, "K": 35.0, "ph": 7.5},
-    "Arenosa":   {"N": 20.0, "P": 15.0, "K": 25.0, "ph": 6.0},
+    "Arenosa":   {"N": 20.0, "P": 15.0, "K": 25.0, "ph": 5.5},
     "Limosa":    {"N": 80.0, "P": 50.0, "K": 50.0, "ph": 6.8},
     "Negra":     {"N": 100.0, "P": 60.0, "K": 50.0, "ph": 6.5},
-    "Roja":      {"N": 40.0, "P": 55.0, "K": 40.0, "ph": 5.5}
+    "Roja":      {"N": 40.0, "P": 55.0, "K": 40.0, "ph": 5.0},
+    "Calcarea":  {"N": 30.0, "P": 20.0, "K": 30.0, "ph": 8.0},
+    "FrancoArc": {"N": 70.0, "P": 50.0, "K": 45.0, "ph": 7.0},
+    "FrancoAre": {"N": 50.0, "P": 40.0, "K": 40.0, "ph": 6.5},
+    "Volcanica": {"N": 50.0, "P": 70.0, "K": 80.0, "ph": 6.0}
 }
 
 # --- DEFINICIÓN DE ENDPOINTS ---
